@@ -13,6 +13,10 @@ namespace Test
         {
             var medidocParser = new Parser();
 
+            //Rapporten:DMA-REP 
+            //Radiologie: DMA-IMA 
+            //Labo:DMA-LAB 
+
             var text = @"1/07389/87/870
 VAN DORPE               JOHAN
 WILGENSTRAAT 28                     
@@ -68,7 +72,7 @@ Geen argumenten voor dysplasie of maligniteit.
 #/
 ";
 
-            var executingDocters = medidocParser.Parse(text);
+            var executingDocters = medidocParser.ParseReport(text); //DMA-REP
         }
     }
 }

@@ -11,18 +11,18 @@ namespace MediDocParser
 {
     public class Parser
     {
-        public IList<ExecutingDoctor> Parse(string text)
+        public IList<ExecutingDoctor> ParseReport(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
 
             using (var reader = new StringReader(text))
             {
-                return Parse(reader);
+                return ParseReport(reader);
             }
         }
 
-        public IList<ExecutingDoctor> Parse(TextReader reader)
+        public IList<ExecutingDoctor> ParseReport(TextReader reader)
         {
             var executingDoctors = new List<ExecutingDoctor>();
 
