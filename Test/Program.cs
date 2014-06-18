@@ -1,8 +1,10 @@
 ﻿using MediDocParser;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Test
@@ -72,7 +74,139 @@ Geen argumenten voor dysplasie of maligniteit.
 #/
 ";
 
-            var executingDocters = medidocParser.ParseReport(text); //DMA-REP
+            var executingDocters = medidocParser.ParseTextReport(text); //DMA-REP
+            var json = JsonConvert.SerializeObject(executingDocters, Formatting.Indented);
+            Console.WriteLine(json);
+
+            Thread.Sleep(2000);
+
+            text = @"W841
+Medisch Laboratorium
+Van Iseghemlaan 98
+8400 Oostende
+Tel. (059) 50.86.95
+RIZIV 1/22222/33/444
+19480601
+1/12345/12/123
+JANNSENS                KAREL           
+#A130311YVVLTHF
+VAN DE VELDE            THEOFIEL        
+19130311
+Y
+19980608
+10000000000001
+C
+#Rc
+0100....
+#R/
+#Rc
+13713..B
+Commentaar bij de formule : hypersegmentatie
+                            anisocytose +
+                            enkele polychromatische RBC
+#R/
+#Ra
+13713A.B
+=0
+01
+N
+#R/
+#Ra
+13713B.B
+=85
+01
+H
+#R/
+#Ra
+13713C.B
+=1
+01
+N
+#R/
+#Ra
+13713D.B
+=0
+01
+N
+#R/
+#Ra
+13713E.B
+=11
+01
+L
+#R/
+#Ra
+13713F.B
+=3
+01
+N
+#R/
+#Rc
+0120....
+#R/
+#Ra
+13513A.B
+=52.6
+40
+HH
+#R/
+#Ra
+57363A.U
+=8.1
+40
+H
+#R/
+#Ra
+57215A.B
+=3.9
+75
+LL
+#R/
+#Ra
+13551A.B
+=83
+78
+H
+#R/
+#Ra
+13553A.B
+=74
+78
+H
+#R/
+#Ra
+57277A.B
+=60
+78
+H
+#R/
+#Ra
+57283A.B
+=452
+78
+H
+#R/
+#Ra
+57275A.B
+=8
+78
+N
+#R/
+#Ra
+57269A.B
+=601
+78
+H
+#R/
+#A/
+#/119
+";
+
+            var labs = medidocParser.ParseLabReport(text); //DMA-LAB
+            json = JsonConvert.SerializeObject(labs, Formatting.Indented);
+            Console.WriteLine(json);
+
+            Console.ReadLine();
         }
     }
 }

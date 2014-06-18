@@ -28,5 +28,11 @@ namespace MediDocParser
 
             return null;
         }
+
+        internal static string TrimToMaxSize(this string input, int max)
+        {
+            return ((input != null) && (input.Length > max)) ?
+                input.Substring(0, max) : input;
+        }
     }
 }

@@ -8,16 +8,18 @@ namespace MediDocParser.Model
         public Patient()
         {
             Address = new Address();
-            Reports = new List<Report>();
+            Results = new List<Result>();
         }
 
+        public string Id { get; set; }
         public DateTime? BirthDate { get; set; }
         public Sex Sex { get; set; }
         public DateTime? RequestDate { get; set; }
         public string ReferenceNumber { get; set; }
         public string EpisodeNumber { get; set; }
+        public ProtocolCode ProtocolCode { get; set; }
         public Address Address { get; set; }
 
-        public IList<Report> Reports { get; set; }
+        public IList<Result> Results { get; set; }
     }
 }
