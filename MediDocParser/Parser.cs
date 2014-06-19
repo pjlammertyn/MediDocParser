@@ -120,8 +120,6 @@ namespace MediDocParser
         Patient ParsePatientBlock(TextReader reader, string firstLine, bool lab)
         {
             var patient = new Patient();
-            if (lab)
-                patient.Address = null;
 
             //Lijn 1: aanduiding begin van een aanvraag formaat: #A (eventueel gevolgd het rijksregisternummer van de patient of bij gebrek hieraan het Medidoc dossiernummer van de patiënt   zie appendix A voor de vorming van het Medidoc dossiernummer)
             if (firstLine.Length > 2)
@@ -317,7 +315,7 @@ namespace MediDocParser
             //ofwel: de Medidoc code van de analyse (8 karakters)
             //ofwel: een code door het labo zelf gevormd (8 karakters)
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
-            result.Id = reader.ReadLine().Maybe(s => s.Trim().TrimStart('!'));
+            result.Id = reader.ReadLine().Maybe(s => s.Trim()).Maybe(s => s.StartsWith("!") ? s.TrimStart('!').TrimToMaxSize(56) : s.TrimToMaxSize(8));
 
             //Lijn 3:	de uitslag zelf
             //formaat: 1 karakter, met name:
