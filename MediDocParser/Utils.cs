@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 
 namespace MediDocParser
 {
@@ -31,8 +28,73 @@ namespace MediDocParser
 
         internal static string TrimToMaxSize(this string input, int max)
         {
-            return ((input != null) && (input.Length > max)) ?
-                input.Substring(0, max) : input;
+            //return ((input != null) && (input.Length > max)) ?
+            //    input.Substring(0, max) : input;
+            if ((input != null) && (input.Length > max))
+                throw new Exception(string.Format("Line exeeded max length of {0} characters: '{1}'", max, input));
+
+            return input;
+        }
+
+        internal static bool IsNullOrEmpty(this string value)
+        {
+            return string.IsNullOrEmpty(value);
+        }
+
+        internal static long ToInt64(this string value)
+        {
+            Int64 result = 0;
+
+            if (!value.IsNullOrEmpty())
+                Int64.TryParse(value, out result);
+
+            return result;
+        }
+
+        internal static bool IsValidSocialSecurityNumber(this string socialSecurityNumber)
+        {
+            if (socialSecurityNumber.IsNullOrEmpty())
+                return false;
+
+            long ssn = socialSecurityNumber.ToInt64();
+
+            var valid = IsValidSocialSecurityNumberBefore2000(ssn);
+            if (!valid)
+                valid = IsValidSocialSecurityNumberAfter2000(ssn);
+            return valid;
+        }
+
+        static bool IsValidSocialSecurityNumberBefore2000(long ssn)
+        {
+            int checkDigit = (int)(ssn % 100);
+            int numberWithoutCheckDigit = (int)(ssn / 100);
+
+            return ((97 - (numberWithoutCheckDigit % 97)) == checkDigit);
+        }
+
+        static bool IsValidSocialSecurityNumberAfter2000(long ssn)
+        {
+            int checkDigit = (int)(ssn % 100);
+            int numberWithoutCheckDigit = (int)(ssn / 100);
+
+            return (97 - ((numberWithoutCheckDigit + (long)2000000000) % 97) == checkDigit);
+        }
+    }
+
+    internal class CountingStringReader : StringReader
+    {
+        public int LineNumber { get; private set; }
+
+        public CountingStringReader(string s)
+            : base(s)
+        {
+            LineNumber = 0;
+        }
+
+        public override string ReadLine()
+        {
+            LineNumber++;
+            return base.ReadLine();
         }
     }
 }
