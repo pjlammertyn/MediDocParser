@@ -293,7 +293,7 @@ namespace MediDocParser
 
         ResultTitle ParseResultTitleBlock(TextReader reader)
         {
-            //(lijn 1:)#Rb positie 1-3:duidt begin aan van verslag)
+            //(lijn 1:)#Rc positie 1-3:duidt begin aan van verslag)
             var title = new ResultTitle();
 
             //Lijn 2: identificatie van de analyse
@@ -301,7 +301,7 @@ namespace MediDocParser
             //ofwel: de Medidoc code van de analyse (8 karakters)
             //ofwel: een code door het labo zelf gevormd (8 karakters)
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
-            title.Id = reader.ReadLine().Maybe(s => s.Trim()).Maybe(s => s.StartsWith("!") ? s.TrimStart('!').TrimToMaxSize(56) : s.TrimToMaxSize(8));
+            title.Id = reader.ReadLine().Maybe(s => s.StartsWith("!") ? s.TrimStart('!').TrimToMaxSize(56).Trim() : s.TrimToMaxSize(8).Trim());
 
             //Lijn 3,4,... : commentaar (facultatief)
             //Een willekeurig aantal lijnen met op elke lijn:
