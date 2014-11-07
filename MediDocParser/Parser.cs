@@ -91,8 +91,8 @@ namespace MediDocParser
             //Lijn 8: RIZIV nummer aanvragende arts
             //formaat: C/CCCCC/CC/CCC
             line = reader.ReadLine();
-            if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
-                throw new Exception(string.Format("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line));
+            //if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
+            //    throw new Exception(string.Format("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line));
             lab.RequestingDoctor.RizivNr = line.Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
 
             //lijn 9: Naam (positie 1-24) + Voornaam (positie 25-40) aanvragende arts
