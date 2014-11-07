@@ -1,4 +1,5 @@
-﻿using System;
+﻿using log4net;
+using System;
 using System.Globalization;
 using System.IO;
 
@@ -6,6 +7,8 @@ namespace MediDocParser
 {
     internal static class Utils
     {
+        static readonly ILog log = LogManager.GetLogger(typeof(Parser));
+
         internal static V Maybe<T, V>(this T t, Func<T, V> selector)
         {
             return t != null ? selector(t) : default(V);
@@ -31,7 +34,10 @@ namespace MediDocParser
             //return ((input != null) && (input.Length > max)) ?
             //    input.Substring(0, max) : input;
             if ((input != null) && (input.Length > max))
-                throw new Exception(string.Format("Line exeeded max length of {0} characters: '{1}'", max, input));
+            {
+                if (log.IsWarnEnabled)
+                    log.WarnFormat("Line exeeded max length of {0} characters: '{1}'", max, input);
+            }
 
             return input;
         }

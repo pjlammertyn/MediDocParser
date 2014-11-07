@@ -1,4 +1,5 @@
-﻿using MediDocParser.Model;
+﻿using log4net;
+using MediDocParser.Model;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +12,9 @@ namespace MediDocParser
 {
     public class Parser
     {
-        public IList<ExecutingDoctor> ParseTextReport(string text)
+        static readonly ILog log = LogManager.GetLogger(typeof(Parser));
+
+        public IEnumerable<ExecutingDoctor> ParseTextReport(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -22,7 +25,7 @@ namespace MediDocParser
             }
         }
 
-        public IList<ExecutingDoctor> ParseTextReport(TextReader reader)
+        public IEnumerable<ExecutingDoctor> ParseTextReport(TextReader reader)
         {
             var executingDoctors = new List<ExecutingDoctor>();
 
@@ -30,8 +33,11 @@ namespace MediDocParser
             do
             {
                 if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
-                    throw new Exception(string.Format("Not valid start of doctor block expected 'd/ddddd/dd/ddd' but got '{0}'", line));
-
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Not valid start of doctor block expected 'd/ddddd/dd/ddd' but got '{0}'", line);
+                    return Enumerable.Empty<ExecutingDoctor>();
+                }
                 executingDoctors.Add(ParseTextReportDoctorBlock(reader, line));
             }
             while ((line = reader.ReadLine()) != null);
@@ -39,7 +45,7 @@ namespace MediDocParser
             return executingDoctors;
         }
 
-        public IList<Lab> ParseLabReport(string text)
+        public IEnumerable<Lab> ParseLabReport(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -50,7 +56,7 @@ namespace MediDocParser
             }
         }
 
-        public IList<Lab> ParseLabReport(TextReader reader)
+        public IEnumerable<Lab> ParseLabReport(TextReader reader)
         {
             var labs = new List<Lab>();
 
@@ -58,7 +64,11 @@ namespace MediDocParser
             do
             {
                 if (line == null || !Regex.Match(line.Trim(), @"[WOABL]\d{3}", RegexOptions.IgnoreCase).Success)
-                    throw new Exception(string.Format("Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{0}'", line));
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{0}'", line);
+                    return Enumerable.Empty<Lab>();
+                }
 
                 labs.Add(ParseLabBlock(reader, line));
             }
@@ -91,8 +101,11 @@ namespace MediDocParser
             //Lijn 8: RIZIV nummer aanvragende arts
             //formaat: C/CCCCC/CC/CCC
             line = reader.ReadLine();
-            //if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
-            //    throw new Exception(string.Format("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line));
+            if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
+            {
+                if (log.IsWarnEnabled)
+                    log.WarnFormat("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line);
+            }
             lab.RequestingDoctor.RizivNr = line.Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
 
             //lijn 9: Naam (positie 1-24) + Voornaam (positie 25-40) aanvragende arts
@@ -109,14 +122,21 @@ namespace MediDocParser
             do
             {
                 if (line == null || !line.StartsWith("#A"))
-                    throw new Exception(string.Format("Not valid start of patient block expected '#A' but got '{0}'", line));
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Not valid start of patient block expected '#A' but got '{0}'", line);
+                    break;
+                }
 
                 lab.Patients.Add(ParsePatientBlock(reader, line, true));
             }
             while (!(line = reader.ReadLine()).StartsWith(@"#/"));
 
             if (!line.StartsWith(@"#/"))
-                throw new Exception(string.Format("Expected end of lab blok '#/' but got '{0}'", line));
+            {
+                if (log.IsWarnEnabled)
+                    log.WarnFormat("Expected end of lab blok '#/' but got '{0}'", line);
+            }
 
             return lab;
         }
@@ -132,12 +152,24 @@ namespace MediDocParser
                 if (id.Length == 11)
                 {
                     if (!id.IsValidSocialSecurityNumber())
-                        throw new Exception(string.Format("Not a valid SSN: '{0}'", id));
-                } else if (id.Length == 13) {
+                    {
+                        if (log.IsWarnEnabled)
+                            log.WarnFormat("Not a valid SSN: '{0}'", id);
+                    }
+                }
+                else if (id.Length == 13)
+                {
                     if (id == null || !Regex.Match(id.Trim(), @"\d{6}[XYZ][A-Z.]{6}", RegexOptions.IgnoreCase).Success)
-                        throw new Exception(string.Format("Not a valid Medidoc dossiernummer: '{0}'", id));
-                } else
-                   throw new Exception(string.Format("Invalid patient id '{0}'", firstLine));     
+                    {
+                        if (log.IsWarnEnabled)
+                            log.WarnFormat("Not a valid Medidoc dossiernummer: '{0}'", id);
+                    }
+                }
+                else
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Invalid patient id '{0}'", firstLine);
+                }
 
                 patient.Id = id.Maybe(ln => ln.Trim());
             }
@@ -217,7 +249,9 @@ namespace MediDocParser
                             patient.ProtocolCode = ProtocolCode.LastAdition;
                             break;
                         default:
-                            throw new Exception("'{0}' is not a valid protocol code (only P,C,S and L) are allowed.");
+                            if (log.IsWarnEnabled)
+                                log.WarnFormat("'{0}' is not a valid protocol code (only P,C,S and L) are allowed.", s);
+                            break;
                     }
                     return s;
                 });
@@ -235,7 +269,7 @@ namespace MediDocParser
             //(lijn 1-7 zijn obligaat, de volgende lijnen mogen weggelaten worden)
             var line = reader.ReadLine();
             if (!line.StartsWith(@"#R"))
-            {  
+            {
                 //(lijn 8:)Straat (positie 1-24) + nr (positie 25-31)
                 line.Maybe(s =>
                 {
@@ -270,7 +304,10 @@ namespace MediDocParser
             do
             {
                 if (line == null || !line.StartsWith("#R"))
-                    throw new Exception(string.Format("Not valid start of result block expected '#R' but got '{0}'", line));
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Not valid start of result block expected '#R' but got '{0}'", line);
+                }
 
                 patient.Results.Add(ParseResultBlock(reader, line));
             }
@@ -288,7 +325,9 @@ namespace MediDocParser
             if (firstLine == "#Rc")
                 return ParseResultTitleBlock(reader);
 
-            throw new Exception(string.Format("Not valid start of result block '{0}'", firstLine));
+            if (log.IsWarnEnabled)
+                log.WarnFormat("Not valid start of result block '{0}' must be #Ra or #Rd or #Rh or #Rm or #Rs or #Rb or #Rc", firstLine);
+            return null;
         }
 
         ResultTitle ParseResultTitleBlock(TextReader reader)
@@ -366,8 +405,11 @@ namespace MediDocParser
             result.Value = reader.ReadLine().Maybe(s =>
                 {
                     if (!Regex.Match(s.Trim(), @"([><=][0-9./]{0,8})|(%{2})|(%{4})|(%{2}.{0,75})", RegexOptions.IgnoreCase).Success)
-                        throw new Exception(string.Format("Not a valid result value: '{0}'", s));
-                   
+                    {
+                        if (log.IsWarnEnabled)
+                            log.WarnFormat("Not a valid result value: '{0}'", s);
+                    }
+
                     return s.Trim();
                 });
 
@@ -433,7 +475,7 @@ namespace MediDocParser
         {
             //(lijn 1:)#Rb positie 1-3:duidt begin aan van verslag)
             var result = new TextResult();
-            
+
             //(lijn 2:) evt identificatie van de analyse (positie 1-56)
             //formaat: '!'gevolgd door trefwoord
             var line = reader.ReadLine();
@@ -555,6 +597,11 @@ namespace MediDocParser
 
             //(lijn 1:)RIZIV-nummer uitvoerend arts of paramedicus (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
+            if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
+            {
+                if (log.IsWarnEnabled)
+                    log.WarnFormat("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line);
+            }
             executingDoctor.RizivNr = line.Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
 
             //(lijn 2:)Naam (positie 1-24) + Voornaam (positie 25-40)
@@ -619,7 +666,10 @@ namespace MediDocParser
             do
             {
                 if (line == null || !line.StartsWith("#A"))
-                    throw new Exception(string.Format("Not valid start of patient block expected '#A' but got '{0}'", line));
+                {
+                    if (log.IsWarnEnabled)
+                        log.WarnFormat("Not valid start of patient block expected '#A' but got '{0}'", line);
+                }
 
                 executingDoctor.Patients.Add(ParsePatientBlock(reader, line, false));
             }
@@ -627,7 +677,10 @@ namespace MediDocParser
 
             //line = sr.ReadLine();
             if (!line.StartsWith(@"#/"))
-                throw new Exception(string.Format("Expected end of doctor blok '#/' but got '{0}'", line));
+            {
+                if (log.IsWarnEnabled)
+                    log.WarnFormat("Expected end of doctor blok '#/' but got '{0}'", line);
+            }
 
             return executingDoctor;
         }
