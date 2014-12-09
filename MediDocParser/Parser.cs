@@ -36,7 +36,7 @@ namespace MediDocParser
                 {
                     if (log.IsWarnEnabled)
                         log.WarnFormat("Not valid start of doctor block expected 'd/ddddd/dd/ddd' but got '{0}'", line);
-                    return Enumerable.Empty<ExecutingDoctor>();
+                    //return Enumerable.Empty<ExecutingDoctor>();
                 }
                 executingDoctors.Add(ParseTextReportDoctorBlock(reader, line));
             }
@@ -67,9 +67,8 @@ namespace MediDocParser
                 {
                     if (log.IsWarnEnabled)
                         log.WarnFormat("Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{0}'", line);
-                    return Enumerable.Empty<Lab>();
+                    //return Enumerable.Empty<Lab>();
                 }
-
                 labs.Add(ParseLabBlock(reader, line));
             }
             while ((line = reader.ReadLine()) != null);
@@ -130,9 +129,9 @@ namespace MediDocParser
 
                 lab.Patients.Add(ParsePatientBlock(reader, line, true));
             }
-            while (!(line = reader.ReadLine()).StartsWith(@"#/"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#/"));
 
-            if (!line.StartsWith(@"#/"))
+            if (line == null || !line.StartsWith(@"#/"))
             {
                 if (log.IsWarnEnabled)
                     log.WarnFormat("Expected end of lab blok '#/' but got '{0}'", line);
@@ -268,7 +267,7 @@ namespace MediDocParser
 
             //(lijn 1-7 zijn obligaat, de volgende lijnen mogen weggelaten worden)
             var line = reader.ReadLine();
-            if (!line.StartsWith(@"#R"))
+            if (line != null && !line.StartsWith(@"#R"))
             {
                 //(lijn 8:)Straat (positie 1-24) + nr (positie 25-31)
                 line.Maybe(s =>
@@ -281,23 +280,23 @@ namespace MediDocParser
                 });
 
                 line = reader.ReadLine();
-                if (!line.StartsWith(@"#R"))
+                if (line != null && !line.StartsWith(@"#R"))
                 {
                     //(lijn 9:)Postcode (positie 1-7)
                     patient.Address.PostalCode = line.Maybe(s => s.TrimToMaxSize(7).Trim());
 
                     line = reader.ReadLine();
-                    if (!line.StartsWith(@"#R"))
+                    if (line != null && !line.StartsWith(@"#R"))
                     {
                         //(lijn 10:)Gemeente (positie 1-24)
                         patient.Address.Town = line.Maybe(s => s.TrimToMaxSize(24).Trim());
                     }
                 }
             }
-            if (!line.StartsWith(@"#R"))
+            if (line != null && !line.StartsWith(@"#R"))
             {
                 //(lijn 11 en volgende: in voorbereiding voor mut-gegevens, enz)
-                while (!(line = reader.ReadLine()).StartsWith(@"#R"))
+                while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#R"))
                 { }
             }
 
@@ -311,7 +310,7 @@ namespace MediDocParser
 
                 patient.Results.Add(ParseResultBlock(reader, line));
             }
-            while (!(line = reader.ReadLine()).StartsWith(@"#A/"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#A/"));
 
             return patient;
         }
@@ -349,7 +348,7 @@ namespace MediDocParser
 
             var sb = new StringBuilder();
             string line = null;
-            while (!(line = reader.ReadLine()).StartsWith(@"#R/"))
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#R/"))
             {
                 sb.AppendLine(line);
             }
@@ -459,7 +458,7 @@ namespace MediDocParser
             //Lijn 6,7,... : commentaar (facultatief)
             var sb = new StringBuilder();
             string line = null;
-            while (!(line = reader.ReadLine()).StartsWith(@"#R/"))
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#R/"))
             {
                 if (line.StartsWith(@"\"))
                     result.ReferenceValue = line;
@@ -491,7 +490,7 @@ namespace MediDocParser
             {
                 sb.AppendLine(line);
             }
-            while (!(line = reader.ReadLine()).StartsWith(@"#R/"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#R/"));
             result.Text = sb.Length > 0 ? sb.ToString() : null;
 
             return result;
@@ -673,10 +672,10 @@ namespace MediDocParser
 
                 executingDoctor.Patients.Add(ParsePatientBlock(reader, line, false));
             }
-            while (!(line = reader.ReadLine()).StartsWith(@"#/"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#/"));
 
             //line = sr.ReadLine();
-            if (!line.StartsWith(@"#/"))
+            if (line == null || !line.StartsWith(@"#/"))
             {
                 if (log.IsWarnEnabled)
                     log.WarnFormat("Expected end of doctor blok '#/' but got '{0}'", line);
