@@ -38,7 +38,8 @@ namespace MediDocParser
                         log.WarnFormat("Not valid start of doctor block expected 'd/ddddd/dd/ddd' but got '{0}'", line);
                     //return Enumerable.Empty<ExecutingDoctor>();
                 }
-                executingDoctors.Add(ParseTextReportDoctorBlock(reader, line));
+                if (line != null)
+                    executingDoctors.Add(ParseTextReportDoctorBlock(reader, line));
             }
             while ((line = reader.ReadLine()) != null);
 
@@ -69,7 +70,8 @@ namespace MediDocParser
                         log.WarnFormat("Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{0}'", line);
                     //return Enumerable.Empty<Lab>();
                 }
-                labs.Add(ParseLabBlock(reader, line));
+                if (line != null)
+                    labs.Add(ParseLabBlock(reader, line));
             }
             while ((line = reader.ReadLine()) != null);
 
@@ -127,7 +129,8 @@ namespace MediDocParser
                     break;
                 }
 
-                lab.Patients.Add(ParsePatientBlock(reader, line, true));
+                if (line != null)
+                    lab.Patients.Add(ParsePatientBlock(reader, line, true));
             }
             while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#/"));
 
@@ -308,7 +311,8 @@ namespace MediDocParser
                         log.WarnFormat("Not valid start of result block expected '#R' but got '{0}'", line);
                 }
 
-                patient.Results.Add(ParseResultBlock(reader, line));
+                if (line != null)
+                    patient.Results.Add(ParseResultBlock(reader, line));
             }
             while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#A/"));
 
@@ -670,7 +674,8 @@ namespace MediDocParser
                         log.WarnFormat("Not valid start of patient block expected '#A' but got '{0}'", line);
                 }
 
-                executingDoctor.Patients.Add(ParsePatientBlock(reader, line, false));
+                if (line != null)
+                    executingDoctor.Patients.Add(ParsePatientBlock(reader, line, false));
             }
             while ((line = reader.ReadLine()) != null && !line.StartsWith(@"#/"));
 
