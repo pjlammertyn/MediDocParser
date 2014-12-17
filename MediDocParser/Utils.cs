@@ -1,17 +1,25 @@
-﻿using log4net;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
+using System.Linq;
 
 namespace MediDocParser
 {
     internal static class Utils
     {
-        static readonly ILog log = LogManager.GetLogger(typeof(Parser));
-
         internal static V Maybe<T, V>(this T t, Func<T, V> selector)
         {
             return t != null ? selector(t) : default(V);
+        }
+
+        internal static void AddItem<TKey, TItem>(this IDictionary<TKey, IList<TItem>> dict, TKey key, TItem item)
+        {
+            if (!dict.ContainsKey(key))
+                dict.Add(key, new List<TItem>());
+
+            dict[key].Add(item);
         }
 
         internal static DateTime? ToNullableDatetime(this string value, params string[] formats)
@@ -27,19 +35,6 @@ namespace MediDocParser
             }
 
             return null;
-        }
-
-        internal static string TrimToMaxSize(this string input, int max)
-        {
-            //return ((input != null) && (input.Length > max)) ?
-            //    input.Substring(0, max) : input;
-            if ((input != null) && (input.Length > max))
-            {
-                if (log.IsWarnEnabled)
-                    log.WarnFormat("Line exeeded max length of {0} characters: '{1}'", max, input);
-            }
-
-            return input;
         }
 
         internal static bool IsNullOrEmpty(this string value)
@@ -84,23 +79,6 @@ namespace MediDocParser
             int numberWithoutCheckDigit = (int)(ssn / 100);
 
             return (97 - ((numberWithoutCheckDigit + (long)2000000000) % 97) == checkDigit);
-        }
-    }
-
-    internal class CountingStringReader : StringReader
-    {
-        public int LineNumber { get; private set; }
-
-        public CountingStringReader(string s)
-            : base(s)
-        {
-            LineNumber = 0;
-        }
-
-        public override string ReadLine()
-        {
-            LineNumber++;
-            return base.ReadLine();
         }
     }
 }
