@@ -8,6 +8,8 @@ namespace MediDocParser.Model
         public Lab()
         {
             Patients = new List<Patient>();
+
+            ParserErrors = new Dictionary<int, IList<string>>();
         }
 
         public string Id { get; set; }
@@ -20,5 +22,7 @@ namespace MediDocParser.Model
         public Doctor RequestingDoctor { get; set; }
 
         public IList<Patient> Patients { get; set; }
+
+        public IDictionary<int, IList<string>> ParserErrors { get; set; }
     }
 }
