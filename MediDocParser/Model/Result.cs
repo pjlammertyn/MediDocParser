@@ -3,7 +3,9 @@ namespace MediDocParser.Model
 {
     public class Result
     {
-        public string Id { get; set; }
+        //public string Id { get; set; }
+        public string Code { get; set; }
+        public string Name { get; set; }
     }
 
     public class TextResult : Result

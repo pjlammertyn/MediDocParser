@@ -1,11 +1,10 @@
-﻿using MediDocParser.Model;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using MediDocParser.Model;
 
 namespace MediDocParser
 {
@@ -101,45 +100,41 @@ namespace MediDocParser
             //Lijn 1: “Medidoc” identificatienummer van het laboratorium. 
             //formaat: 4 karakters en wordt als volgt gevormd: de eerste letter van de provincie (W,O,A,B,L) gevolgd door de eerste twee cijfers van de postkode, gevolgd door een volgnummer binnen de stad of gemeente. (vb. W841 voor een labo te Oostende)
             if (line == null || !Regex.Match(line.Trim(), @"[WOABL]\d{3}", RegexOptions.IgnoreCase).Success)
-                ParserErrors.AddItem(lineNumber, string.Format("Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{0}'", line)); 
-            lab.Id = line.Maybe(s => s.Trim());
+                ParserErrors.AddItem(lineNumber, $"Not valid start of lab block expected W,O,A,B,L followed by three digits but got '{line}'");
+            lab.Id = line?.Trim();
 
             //Lijn 2 6: Identificatiegegevens van het labo (naam, adres, tel ...)
             //formaat: vrije tekst met maximaal 50 karakters per lijn .
-            lab.Name = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
-            lab.Address1 = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
-            lab.Address2 = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
-            lab.IdentificationData1 = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
-            lab.IdentificationData2 = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
+            lab.Name = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
+            lab.Address1 = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
+            lab.Address2 = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
+            lab.IdentificationData1 = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
+            lab.IdentificationData2 = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
 
             //Lijn 7: datum (+ eventueel tijdstip) aanmaak
             //formaat: JJJJMMDD(+evtHHMM)
-            lab.Date = ReadLine(reader).Maybe(s => s.ToNullableDatetime("yyyyMMddHHmm", "yyyyMMdd"));
+            lab.Date = ReadLine(reader)?.ToNullableDatetime("yyyyMMddHHmm", "yyyyMMdd", "yyMMdd");
 
             lab.RequestingDoctor = new Doctor();
             //Lijn 8: RIZIV nummer aanvragende arts
             //formaat: C/CCCCC/CC/CCC
             line = ReadLine(reader);
             if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
-                ParserErrors.AddItem(lineNumber, string.Format("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line));
-            lab.RequestingDoctor.RizivNr = line.Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
+                ParserErrors.AddItem(lineNumber, $"Not a valid rizivnumber: '{line}' of format C/CCCCC/CC/CCC");
+            lab.RequestingDoctor.RizivNr = line?.Replace("/", string.Empty).Trim();
 
             //lijn 9: Naam (positie 1-24) + Voornaam (positie 25-40) aanvragende arts
-            ReadLine(reader).Maybe(s =>
-            {
-                s = TrimToMaxSize(s, 40);
-                lab.RequestingDoctor.LastName = s.Substring(0, s.Length > 24 ? 24 : s.Length).Maybe(ln => ln.Trim());
-                if (s.Length > 24)
-                    lab.RequestingDoctor.FirstName = s.Substring(24).Maybe(fn => fn.Trim());
-                return s;
-            });
+            var name = ReadLine(reader)?.CheckMaxSize(40, ParserErrors, lineNumber);
+            lab.RequestingDoctor.LastName = name?.Substring(0, name.Length > 24 ? 24 : name.Length).Trim();
+            if (name?.Length > 24)
+                lab.RequestingDoctor.FirstName = name?.Substring(24).Trim();
 
             line = ReadLine(reader);
             do
             {
                 if (line == null || !line.StartsWith("#A"))
                 {
-                    ParserErrors.AddItem(lineNumber, string.Format("Not valid start of patient block expected '#A' but got '{0}'", line));
+                    ParserErrors.AddItem(lineNumber, $"Not valid start of patient block expected '#A' but got '{line}'");
                     break;
                 }
 
@@ -149,7 +144,7 @@ namespace MediDocParser
             while ((line = ReadLine(reader)) != null && !line.StartsWith(@"#/"));
 
             if (line == null || !line.StartsWith(@"#/"))
-                ParserErrors.AddItem(lineNumber, string.Format("Expected end of lab blok '#/' but got '{0}'", line));
+                ParserErrors.AddItem(lineNumber, $"Expected end of lab blok '#/' but got '{line}'");
 
             return lab;
         }
@@ -165,110 +160,83 @@ namespace MediDocParser
                 if (id.Length == 11)
                 {
                     if (!id.IsValidSocialSecurityNumber())
-                        ParserErrors.AddItem(lineNumber, string.Format("Not a valid SSN: '{0}'", id));
+                        ParserErrors.AddItem(lineNumber, $"Not a valid SSN: '{id}'");
                 }
                 else if (id.Length == 13)
                 {
                     if (id == null || !Regex.Match(id.Trim(), @"\d{6}[XYZ][A-Z.]{6}", RegexOptions.IgnoreCase).Success)
-                        ParserErrors.AddItem(lineNumber, string.Format("Not a valid Medidoc dossiernummer: '{0}'", id));
+                        ParserErrors.AddItem(lineNumber, $"Not a valid Medidoc dossiernummer: '{id}'");
                 }
                 else
                 {
-                    ParserErrors.AddItem(lineNumber, string.Format("Invalid patient id '{0}'", firstLine));
+                    ParserErrors.AddItem(lineNumber, $"Invalid patient id '{firstLine}'");
                 }
 
-                patient.Id = id.Maybe(ln => ln.Trim());
+                patient.Id = id?.Trim();
             }
 
             //Lijn 2:	naam en voornaam van de patiënt
-            ReadLine(reader).Maybe(s =>
-            {
-                s = TrimToMaxSize(s, 40);
-                patient.LastName = s.Substring(0, s.Length > 24 ? 24 : s.Length).Maybe(ln => ln.Trim());
-                if (s.Length > 24)
-                    patient.FirstName = s.Substring(24).Maybe(fn => fn.Trim());
-                return s;
-            });
+            var name = ReadLine(reader)?.CheckMaxSize(40, ParserErrors, lineNumber);
+            patient.LastName = name?.Substring(0, name.Length > 24 ? 24 : name.Length).Trim();
+            if (name?.Length > 24)
+                patient.FirstName = name?.Substring(24).Trim();
 
             //Lijn 3: geboortedatum patiënt
             //formaat: JJJJMMDD
-            patient.BirthDate = ReadLine(reader).Maybe(s =>
-                {
-                    s = TrimToMaxSize(s, 8);
-                    return s.ToNullableDatetime("yyyyMMdd");
-                });
+            patient.BirthDate = ReadLine(reader)?.CheckMaxSize(8, ParserErrors, lineNumber).ToNullableDatetime("yyyyMMdd", "yyMMdd");
 
             //Lijn 4: geslacht patiënt
             //formaat: X, of Y, of Z
-            ReadLine(reader).Maybe(s =>
+            switch (ReadLine(reader)?.CheckMaxSize(1, ParserErrors, lineNumber))
             {
-                s = TrimToMaxSize(s, 1);
-                switch (s)
-                {
-                    case "X":
-                        patient.Sex = Sex.female;
-                        break;
-                    case "Y":
-                        patient.Sex = Sex.male;
-                        break;
-                    default:
-                        patient.Sex = Sex.unknown;
-                        break;
-                }
-                return s;
-            });
+                case "X":
+                    patient.Sex = Sex.female;
+                    break;
+                case "Y":
+                    patient.Sex = Sex.male;
+                    break;
+                default:
+                    patient.Sex = Sex.unknown;
+                    break;
+            }
 
             //Lijn 5:	datum van de aanvraag
             //formaat: JJJJMMDD
-            patient.RequestDate = ReadLine(reader).Maybe(s =>
-            {
-                s = TrimToMaxSize(s, 8);
-                return s.ToNullableDatetime("yyyyMMdd");
-            });
+            patient.RequestDate = ReadLine(reader)?.CheckMaxSize(8, ParserErrors, lineNumber).ToNullableDatetime("yyyyMMdd", "yyMMdd");
 
             //(Lijn 6:	referentienummer aanvraag 
             //formaat: max 14 karakters.
-            patient.ReferenceNumber = ReadLine(reader).Maybe(s =>
-            {
-                return TrimToMaxSize(s, 14).Trim();
-            });
+            patient.ReferenceNumber = ReadLine(reader)?.CheckMaxSize(14, ParserErrors, lineNumber).Trim();
 
             if (lab)
             {
                 //Lijn 7:	protocol code
                 //formaat: 1 karakter, zijnde: P indien partieel protocol; C indien volledig protocol; S indien aanvulling van een partieel; L indien het de laatste aanvulling is
-                ReadLine(reader).Maybe(s =>
+                var protocolCode = ReadLine(reader)?.CheckMaxSize(1, ParserErrors, lineNumber);
+                switch (protocolCode)
                 {
-                    s = TrimToMaxSize(s, 1);
-                    switch (s)
-                    {
-                        case "P":
-                            patient.ProtocolCode = ProtocolCode.Partial;
-                            break;
-                        case "C":
-                            patient.ProtocolCode = ProtocolCode.Full;
-                            break;
-                        case "S":
-                            patient.ProtocolCode = ProtocolCode.Adition;
-                            break;
-                        case "L":
-                            patient.ProtocolCode = ProtocolCode.LastAdition;
-                            break;
-                        default:
-                            ParserErrors.AddItem(lineNumber, string.Format("'{0}' is not a valid protocol code (only P,C,S and L) are allowed.", s));
-                            break;
-                    }
-                    return s;
-                });
+                    case "P":
+                        patient.ProtocolCode = ProtocolCode.Partial;
+                        break;
+                    case "C":
+                        patient.ProtocolCode = ProtocolCode.Full;
+                        break;
+                    case "S":
+                        patient.ProtocolCode = ProtocolCode.Adition;
+                        break;
+                    case "L":
+                        patient.ProtocolCode = ProtocolCode.LastAdition;
+                        break;
+                    default:
+                        ParserErrors.AddItem(lineNumber, string.Format($"'{protocolCode}' is not a valid protocol code (only P,C,S and L) are allowed."));
+                        break;
+                }
             }
             else
             {
                 //(lijn 7:)Episodenummer (positie 1-14); legt verband tussen meerdere onderzoeken
                 //mag blanco gelaten worden
-                patient.EpisodeNumber = ReadLine(reader).Maybe(s =>
-                {
-                    return TrimToMaxSize(s, 14).Trim();
-                });
+                patient.EpisodeNumber = ReadLine(reader)?.CheckMaxSize(14, ParserErrors, lineNumber).Trim();
             }
 
             //(lijn 1-7 zijn obligaat, de volgende lijnen mogen weggelaten worden)
@@ -276,26 +244,22 @@ namespace MediDocParser
             if (line != null && !line.StartsWith(@"#R"))
             {
                 //(lijn 8:)Straat (positie 1-24) + nr (positie 25-31)
-                line.Maybe(s =>
-                {
-                    s = TrimToMaxSize(s, 31);
-                    patient.Address.Street = s.Substring(0, s.Length > 35 ? 35 : s.Length).Maybe(str => str.Trim());
-                    if (s.Length > 35)
-                        patient.Address.HouseNr = s.Substring(35).Maybe(hn => hn.Trim());
-                    return s;
-                });
+                var address = line?.CheckMaxSize(31, ParserErrors, lineNumber);
+                patient.Address.Street = address?.Substring(0, address.Length > 35 ? 35 : address.Length).Trim();
+                if (address?.Length > 35)
+                    patient.Address.HouseNr = address?.Substring(35).Trim();
 
                 line = ReadLine(reader);
                 if (line != null && !line.StartsWith(@"#R"))
                 {
                     //(lijn 9:)Postcode (positie 1-7)
-                    patient.Address.PostalCode = line.Maybe(s => TrimToMaxSize(s, 7).Trim());
+                    patient.Address.PostalCode = line?.CheckMaxSize(7, ParserErrors, lineNumber).Trim();
 
                     line = ReadLine(reader);
                     if (line != null && !line.StartsWith(@"#R"))
                     {
                         //(lijn 10:)Gemeente (positie 1-24)
-                        patient.Address.Town = line.Maybe(s => TrimToMaxSize(s, 24).Trim());
+                        patient.Address.Town = line?.CheckMaxSize(24, ParserErrors, lineNumber).Trim();
                     }
                 }
             }
@@ -309,7 +273,7 @@ namespace MediDocParser
             do
             {
                 if (line == null || !line.StartsWith("#R"))
-                    ParserErrors.AddItem(lineNumber, string.Format("Not valid start of result block expected '#R' but got '{0}'", line));
+                    ParserErrors.AddItem(lineNumber, $"Not valid start of result block expected '#R' but got '{line}'");
 
                 if (line != null)
                     patient.Results.Add(ParseResultBlock(reader, line));
@@ -328,7 +292,7 @@ namespace MediDocParser
             if (firstLine == "#Rc")
                 return ParseResultTitleBlock(reader);
 
-            ParserErrors.AddItem(lineNumber, string.Format("Not valid start of result block '{0}' must be #Ra or #Rd or #Rh or #Rm or #Rs or #Rb or #Rc", firstLine));
+            ParserErrors.AddItem(lineNumber, $"Not valid start of result block '{firstLine}' must be #Ra or #Rd or #Rh or #Rm or #Rs or #Rb or #Rc");
             return null;
         }
 
@@ -342,7 +306,11 @@ namespace MediDocParser
             //ofwel: de Medidoc code van de analyse (8 karakters)
             //ofwel: een code door het labo zelf gevormd (8 karakters)
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
-            title.Id = ReadLine(reader).Maybe(s => s.StartsWith("!") ? TrimToMaxSize(s.TrimStart('!'), 56).Trim() : TrimToMaxSize(s, 8).Trim());
+            var id = ReadLine(reader)?.Trim();
+            if (id?.StartsWith("!") ?? false)
+                title.Name = id?.TrimStart('!').CheckMaxSize(56, ParserErrors, lineNumber);
+            else 
+                title.Code = id?.CheckMaxSize(8, ParserErrors, lineNumber);
 
             //Lijn 3,4,... : commentaar (facultatief)
             //Een willekeurig aantal lijnen met op elke lijn:
@@ -391,7 +359,11 @@ namespace MediDocParser
             //ofwel: de Medidoc code van de analyse (8 karakters)
             //ofwel: een code door het labo zelf gevormd (8 karakters)
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
-            result.Id = ReadLine(reader).Maybe(s => s.Trim()).Maybe(s => s.StartsWith("!") ? TrimToMaxSize(s.TrimStart('!'), 56) : TrimToMaxSize(s, 8));
+            var id = ReadLine(reader)?.Trim();
+            if (id?.StartsWith("!") ?? false)
+                result.Name = id?.TrimStart('!').CheckMaxSize(56, ParserErrors, lineNumber);
+            else
+                result.Code = id?.CheckMaxSize(8, ParserErrors, lineNumber);
 
             //Lijn 3:	de uitslag zelf
             //formaat: 1 karakter, met name:
@@ -404,56 +376,48 @@ namespace MediDocParser
             //ofwel:	=%%%%	=> betekent: er is geen uitslag en mag ook niet meer verwacht worden.
             //ofwel:	=%% gevolgd door max. 75 karakters vrije tekst (beperking niet meer van toepassing voor de pakketten van Corilus nv) of de code van een standaard
             //commentaar (cfr. Appendix B) => betekent: er is geen uitslag, de tekst legt uit waarom.
-            result.Value = ReadLine(reader).Maybe(s =>
-                {
-                    if (!Regex.Match(s.Trim(), @"([><=][0-9./]{0,8})|(%{2})|(%{4})|(%{2}.{0,75})", RegexOptions.IgnoreCase).Success)
-                        ParserErrors.AddItem(lineNumber, string.Format("Not a valid result value: '{0}'", s));
-
-                    return s.Trim();
-                });
+            result.Value = ReadLine(reader)?.Trim();
+            if (result.Value == null || !Regex.Match(result.Value, @"([><=][0-9./]{0,8})|(%{2})|(%{4})|(%{2}.{0,75})", RegexOptions.IgnoreCase).Success)
+                ParserErrors.AddItem(lineNumber, $"Not a valid result value: '{result.Value}'");
 
             //Lijn 4:	de "Medidoc" eenheididentifikatie
             //formaat: 2 karakters
-            result.Unit = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 2).Trim());
+            result.Unit = ReadLine(reader)?.CheckMaxSize(2, ParserErrors, lineNumber).Trim();
 
             //Lijn 5:	aanduiding pathologisch/normaal (max. 6 karakters)
-            ReadLine(reader).Maybe(s =>
+            var intensity = ReadLine(reader)?.CheckMaxSize(6, ParserErrors, lineNumber);
+            switch (intensity?.Trim())
             {
-                s = TrimToMaxSize(s, 6);
-                switch (s)
-                {
-                    case "--":
-                    case "LL":
-                    case "1":
-                        result.Intensity = ResultIntensity.GreatlyReduced;
-                        break;
-                    case "-":
-                    case "L":
-                    case "2":
-                        result.Intensity = ResultIntensity.Reduced;
-                        break;
-                    case "=":
-                    case "N":
-                    case "3":
-                    case "":
-                        result.Intensity = ResultIntensity.Normal;
-                        break;
-                    case "+":
-                    case "H":
-                    case "4":
-                        result.Intensity = ResultIntensity.Increased;
-                        break;
-                    case "++":
-                    case "HH":
-                    case "5":
-                        result.Intensity = ResultIntensity.GreatlyIncreased;
-                        break;
-                    default:
-                        result.Intensity = ResultIntensity.Normal;
-                        break;
-                }
-                return s;
-            });
+                case "--":
+                case "LL":
+                case "1":
+                    result.Intensity = ResultIntensity.GreatlyReduced;
+                    break;
+                case "-":
+                case "L":
+                case "2":
+                    result.Intensity = ResultIntensity.Reduced;
+                    break;
+                case "=":
+                case "N":
+                case "3":
+                case "":
+                    result.Intensity = ResultIntensity.Normal;
+                    break;
+                case "+":
+                case "H":
+                case "4":
+                    result.Intensity = ResultIntensity.Increased;
+                    break;
+                case "++":
+                case "HH":
+                case "5":
+                    result.Intensity = ResultIntensity.GreatlyIncreased;
+                    break;
+                default:
+                    result.Intensity = ResultIntensity.Normal;
+                    break;
+            }
 
             //Lijn 6,7,... : commentaar (facultatief)
             var sb = new StringBuilder();
@@ -461,7 +425,7 @@ namespace MediDocParser
             while ((line = ReadLine(reader)) != null && !line.StartsWith(@"#R/"))
             {
                 if (line.StartsWith(@"\"))
-                    result.ReferenceValue = line;
+                    result.ReferenceValue = line.TrimStart('\\');
                 else
                     sb.AppendLine(line);
             }
@@ -480,7 +444,7 @@ namespace MediDocParser
             var line = ReadLine(reader);
             if (line.StartsWith(@"!"))
             {
-                result.Id = line.Maybe(s => s.Trim());
+                result.Name = line?.Trim();
                 line = ReadLine(reader);
             }
 
@@ -502,73 +466,60 @@ namespace MediDocParser
 
             //(lijn 1:)RIZIV-nummer uitvoerend arts of paramedicus (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
-            if (line == null || !Regex.Match(line.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
-                ParserErrors.AddItem(lineNumber, string.Format("Not a valid rizivnumber: '{0}' of format C/CCCCC/CC/CCC", line));
-            executingDoctor.RizivNr = line.Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
+            if (line == null || !Regex.Match(line?.Trim(), @"\d/\d{5}/\d{2}/\d{3}", RegexOptions.IgnoreCase).Success)
+                ParserErrors.AddItem(lineNumber, $"Not a valid rizivnumber: '{line}' of format C/CCCCC/CC/CCC");
+            executingDoctor.RizivNr = line?.Replace("/", string.Empty).Trim();
 
             //(lijn 2:)Naam (positie 1-24) + Voornaam (positie 25-40)
             //uitvoerend arts of paramedicus
-            ReadLine(reader).Maybe(s =>
-            {
-                executingDoctor.LastName = s.Substring(0, s.Length > 24 ? 24 : s.Length).Maybe(ln => ln.Trim());
-                if (s.Length > 24)
-                    executingDoctor.FirstName = s.Substring(24).Maybe(fn => fn.Trim());
-                return s;
-            });
+            var name = ReadLine(reader)?.CheckMaxSize(40, ParserErrors, lineNumber);
+            executingDoctor.LastName = name?.Substring(0, name.Length > 24 ? 24 : name.Length).Trim();
+            if (name?.Length > 24)
+                executingDoctor.FirstName = name?.Substring(24).Trim();
 
             //(lijn 3:)Straat (positie 1-35) + nr (positie 36-45)
             //uitvoerend arts of paramedicus
-            ReadLine(reader).Maybe(s =>
-            {
-                executingDoctor.Address.Street = s.Substring(0, s.Length > 35 ? 35 : s.Length).Maybe(str => str.Trim()); //.Maybe(str => str.IfEmptyMakeNull())
-                if (s.Length > 35)
-                    executingDoctor.Address.HouseNr = s.Substring(35).Maybe(hn => hn.Trim());
-                return s;
-            });
+            var address = ReadLine(reader)?.CheckMaxSize(45, ParserErrors, lineNumber);
+            executingDoctor.Address.Street = address?.Substring(0, address.Length > 35 ? 35 : address.Length).Trim();
+            if (address?.Length > 35)
+                executingDoctor.Address.HouseNr = address?.Substring(35).Trim();
 
             //(lijn 4:)Postcode (positie 1-10) + Gemeente (positie 11-45)
             //uitvoerend arts of paramedicus
-            ReadLine(reader).Maybe(s =>
-            {
-                executingDoctor.Address.PostalCode = s.Substring(0, s.Length > 10 ? 10 : s.Length).Maybe(pc => pc.Trim());
-                if (s.Length > 10)
-                    executingDoctor.Address.Town = s.Substring(10).Maybe(t => t.Trim());
-                return s;
-            });
+            address = ReadLine(reader)?.CheckMaxSize(45, ParserErrors, lineNumber);
+            executingDoctor.Address.PostalCode = address?.Substring(0, address.Length > 10 ? 10 : address.Length).Trim();
+            if (address?.Length > 10)
+                executingDoctor.Address.Town = address?.Substring(10).Trim();
 
             //(lijn 5:)Telefoon- en faxnummer (vrije tekst) (positie 1-50)
             //uitvoerend arts of paramedicus
-            executingDoctor.Phone = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
+            executingDoctor.Phone = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
 
             //(lijn 6:)Boodschap (vrije tekst) (positie 1-50)
-            executingDoctor.Message = ReadLine(reader).Maybe(s => TrimToMaxSize(s, 50).Trim());
+            executingDoctor.Message = ReadLine(reader)?.CheckMaxSize(50, ParserErrors, lineNumber).Trim();
 
             //(lijn 7:)Datum(+eventueel tijdstip) aanmaak diskette (positie 1-10)
             //formaat: JJJJMMDD(+evtHHMM)
-            executingDoctor.Date = ReadLine(reader).Maybe(s => s.ToNullableDatetime("yyyyMMddHHmm", "yyyyMMdd"));
+            executingDoctor.Date = ReadLine(reader)?.ToNullableDatetime("yyyyMMddHHmm", "yyyyMMdd", "yyMMdd");
 
 
             executingDoctor.RequestingDoctor = new Doctor();
             //(lijn 8:)RIZIV-nummer aanvragende arts (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
-            executingDoctor.RequestingDoctor.RizivNr = ReadLine(reader).Maybe(s => s.Replace("/", string.Empty)).Maybe(s => s.Trim());
+            executingDoctor.RequestingDoctor.RizivNr = ReadLine(reader)?.Replace("/", string.Empty).Trim();
 
             //(lijn 9:)Naam (positie 1-24) + Voornaam (positie 25-40)
             //aanvragende arts
-            ReadLine(reader).Maybe(s =>
-            {
-                executingDoctor.RequestingDoctor.LastName = s.Substring(0, s.Length > 24 ? 24 : s.Length).Maybe(ln => ln.Trim());
-                if (s.Length > 24)
-                    executingDoctor.RequestingDoctor.FirstName = s.Substring(24).Maybe(fn => fn.Trim());
-                return s;
-            });
-
+            name = ReadLine(reader)?.CheckMaxSize(40, ParserErrors, lineNumber);
+            executingDoctor.RequestingDoctor.LastName = name?.Substring(0, name.Length > 24 ? 24 : name.Length).Trim();
+            if (name?.Length > 24)
+                executingDoctor.RequestingDoctor.FirstName = name?.Substring(24).Trim();
 
             line = ReadLine(reader);
             do
             {
                 if (line == null || !line.StartsWith("#A"))
-                    ParserErrors.AddItem(lineNumber, string.Format("Not valid start of patient block expected '#A' but got '{0}'", line));
+                    ParserErrors.AddItem(lineNumber, $"Not valid start of patient block expected '#A' but got '{line}'");
 
                 if (line != null)
                     executingDoctor.Patients.Add(ParsePatientBlock(reader, line, false));
@@ -577,7 +528,7 @@ namespace MediDocParser
 
             //line = sr.ReadLine();
             if (line == null || !line.StartsWith(@"#/"))
-                ParserErrors.AddItem(lineNumber, string.Format("Expected end of doctor blok '#/' but got '{0}'", line));
+                ParserErrors.AddItem(lineNumber, $"Expected end of doctor blok '#/' but got '{line}'");
 
             return executingDoctor;
         }
@@ -590,14 +541,6 @@ namespace MediDocParser
         {
             lineNumber++;
             return reader.ReadLine();
-        }
-
-        string TrimToMaxSize(string input, int max)
-        {
-            if ((input != null) && (input.Length > max))
-                ParserErrors.AddItem(lineNumber, string.Format("Line exeeded max length of {0} characters: '{1}'", max, input));
-
-            return input;
         }
 
         #endregion

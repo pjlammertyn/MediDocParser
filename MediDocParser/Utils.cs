@@ -9,10 +9,10 @@ namespace MediDocParser
 {
     internal static class Utils
     {
-        internal static V Maybe<T, V>(this T t, Func<T, V> selector)
-        {
-            return t != null ? selector(t) : default(V);
-        }
+        //internal static V Maybe<T, V>(this T t, Func<T, V> selector)
+        //{
+        //    return t != null ? selector(t) : default(V);
+        //}
 
         internal static void AddItem<TKey, TItem>(this IDictionary<TKey, IList<TItem>> dict, TKey key, TItem item)
         {
@@ -79,6 +79,25 @@ namespace MediDocParser
             int numberWithoutCheckDigit = (int)(ssn / 100);
 
             return (97 - ((numberWithoutCheckDigit + (long)2000000000) % 97) == checkDigit);
+        }
+
+        internal static string CheckMaxSize(this string input, int max, IDictionary<int, IList<string>> parserErrors, int lineNumber)
+        {
+            if ((input != null) && (input.Length > max))
+                parserErrors.AddItem(lineNumber, $"Line exeeded max length of {max} characters: '{input}'");
+
+            return input;
+        }
+
+        internal static string TrimToMaxSize(this string input, int max)
+        {
+            return ((input != null) && (input.Length > max)) ?
+                input.Substring(0, max) : input;
+        }
+
+        internal static bool IsMidnight(this DateTime datetime)
+        {
+            return datetime == datetime.Date;
         }
     }
 }
