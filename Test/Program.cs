@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace Test
 {
@@ -13,13 +14,11 @@ namespace Test
     {
         static void Main(string[] args)
         {
-            var medidocParser = new Parser();
-
             //Rapporten:DMA-REP 
             //Radiologie: DMA-IMA 
             //Labo:DMA-LAB 
 
-            var text = @"1/07389/87/870
+            /*var text = @"1/07389/87/870
 VAN DORPE               JOHAN
 WILGENSTRAAT 28                     
 8850      Zwevezele
@@ -78,7 +77,7 @@ Geen argumenten voor dysplasie of maligniteit.
             var json = JsonConvert.SerializeObject(executingDocters, Formatting.Indented);
             Console.WriteLine(json);
 
-            Thread.Sleep(2000);
+            //Thread.Sleep(2000);
 
             text = @"W841
 Medisch Laboratorium
@@ -205,6 +204,20 @@ H
             var labs = medidocParser.ParseLabReport(text); //DMA-LAB
             json = JsonConvert.SerializeObject(labs, Formatting.Indented);
             Console.WriteLine(json);
+            */
+
+            var text = File.ReadAllText(@"E:\Temp\labo01.lab");
+
+            var medidocParser = new Parser();
+            var labs = medidocParser.ParseLabReport(text); //DMA-LAB
+
+            var medidocComposer = new Composer();
+            var sb = new StringBuilder();
+            using (var writer = new StringWriter(sb))
+                medidocComposer.ComposeLabReport(writer, labs);
+
+            Console.WriteLine(sb.ToString());
+
 
             Console.ReadLine();
         }
