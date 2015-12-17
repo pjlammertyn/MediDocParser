@@ -1,12 +1,7 @@
-﻿using MediDocParser;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System;
 using System.IO;
+using System.Text;
+using MediDocParser;
 
 namespace Test
 {
@@ -208,13 +203,11 @@ H
 
             var text = File.ReadAllText(@"E:\Temp\labo01.lab");
 
-            var medidocParser = new Parser();
-            var labs = medidocParser.ParseLabReport(text); //DMA-LAB
+            var labs = Parser.ParseLabReport(text); //DMA-LAB
 
-            var medidocComposer = new Composer();
             var sb = new StringBuilder();
             using (var writer = new StringWriter(sb))
-                medidocComposer.ComposeLabReport(writer, labs);
+                Composer.ComposeLabReport(writer, labs);
 
             Console.WriteLine(sb.ToString());
 

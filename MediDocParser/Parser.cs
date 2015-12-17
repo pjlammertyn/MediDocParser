@@ -8,11 +8,11 @@ using MediDocParser.Model;
 
 namespace MediDocParser
 {
-    public class Parser
+    public static class Parser
     {
         #region Parser Methods
 
-        public IEnumerable<ExecutingDoctor> ParseTextReport(string text)
+        public static IEnumerable<ExecutingDoctor> ParseTextReport(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -21,7 +21,7 @@ namespace MediDocParser
                 return ParseTextReport(reader);
         }
 
-        public IEnumerable<ExecutingDoctor> ParseTextReport(TextReader reader)
+        public static IEnumerable<ExecutingDoctor> ParseTextReport(TextReader reader)
         {
             var executingDoctors = new List<ExecutingDoctor>();
             var lineNumber = 1;
@@ -38,7 +38,7 @@ namespace MediDocParser
             return executingDoctors;
         }
 
-        public IEnumerable<Lab> ParseLabReport(string text)
+        public static IEnumerable<Lab> ParseLabReport(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -47,7 +47,7 @@ namespace MediDocParser
                 return ParseLabReport(reader);
         }
 
-        public IEnumerable<Lab> ParseLabReport(TextReader reader)
+        public static IEnumerable<Lab> ParseLabReport(TextReader reader)
         {
             var labs = new List<Lab>();
             var lineNumber = 1;
@@ -68,7 +68,7 @@ namespace MediDocParser
 
         #region Private Parser Methods
 
-        Lab ParseLabBlock(TextReader reader, ref int lineNumber, string line)
+        static Lab ParseLabBlock(TextReader reader, ref int lineNumber, string line)
         {
             var lab = new Lab();
 
@@ -135,7 +135,7 @@ namespace MediDocParser
             return lab;
         }
 
-        Patient ParsePatientBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine, bool lab)
+        static Patient ParsePatientBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine, bool lab)
         {
             var patient = new Patient();
 
@@ -283,7 +283,7 @@ namespace MediDocParser
             return patient;
         }
 
-        Result ParseResultBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine)
+        static Result ParseResultBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine)
         {
             if ((new string[] { "#Ra", "#Rd", "#Rh", "#Rm", "#Rs" }).Contains(firstLine))
                 return ParseNumericBlock(reader, ref lineNumber, parserErrors, firstLine);
@@ -296,7 +296,7 @@ namespace MediDocParser
             return null;
         }
 
-        ResultTitle ParseResultTitleBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors)
+        static ResultTitle ParseResultTitleBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             //(lijn 1:)#Rc positie 1-3:duidt begin aan van verslag)
             var title = new ResultTitle();
@@ -331,7 +331,7 @@ namespace MediDocParser
             return title;
         }
 
-        NumericResult ParseNumericBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine)
+        static NumericResult ParseNumericBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors, string firstLine)
         {
             NumericResult result;
 
@@ -443,7 +443,7 @@ namespace MediDocParser
             return result;
         }
 
-        TextResult ParseTextResultBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors)
+        static TextResult ParseTextResultBlock(TextReader reader, ref int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             //(lijn 1:)#Rb positie 1-3:duidt begin aan van verslag)
             var result = new TextResult();
@@ -472,7 +472,7 @@ namespace MediDocParser
             return result;
         }
 
-        ExecutingDoctor ParseTextReportDoctorBlock(TextReader reader, ref int lineNumber, string line)
+        static ExecutingDoctor ParseTextReportDoctorBlock(TextReader reader, ref int lineNumber, string line)
         {
             var executingDoctor = new ExecutingDoctor();
 

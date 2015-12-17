@@ -5,18 +5,18 @@ using MediDocParser.Model;
 
 namespace MediDocParser
 {
-    public class Composer
+    public static class Composer
     {
         #region Compose Methods
 
-        public void ComposeTextReport(TextWriter writer, IEnumerable<ExecutingDoctor> executingDoctors)
+        public static void ComposeTextReport(TextWriter writer, IEnumerable<ExecutingDoctor> executingDoctors)
         {
             var lineNumber = 0;
             foreach (var executingDoctor in executingDoctors)
                 ComposeTextReportDoctorBlock(writer, ref lineNumber, executingDoctor);
         }
 
-        public void ComposeLabReport(TextWriter writer, IEnumerable<Lab> labs)
+        public static void ComposeLabReport(TextWriter writer, IEnumerable<Lab> labs)
         {
             var lineNumber = 0;
             foreach (var lab in labs)
@@ -27,7 +27,7 @@ namespace MediDocParser
 
         #region Private Compose Methods
 
-        void ComposeLabBlock(TextWriter writer, ref int lineNumber, Lab lab)
+        static void ComposeLabBlock(TextWriter writer, ref int lineNumber, Lab lab)
         {
             //Lijn 1: “Medidoc” identificatienummer van het laboratorium. 
             //formaat: 4 karakters en wordt als volgt gevormd: de eerste letter van de provincie (W,O,A,B,L) gevolgd door de eerste twee cijfers van de postkode, gevolgd door een volgnummer binnen de stad of gemeente. (vb. W841 voor een labo te Oostende)
@@ -70,7 +70,7 @@ namespace MediDocParser
             writer.WriteLine($"#/{lineNumber}");
         }
 
-        void ComposePatientBlock(TextWriter writer, ref int lineNumber, Patient patient, bool lab)
+        static void ComposePatientBlock(TextWriter writer, ref int lineNumber, Patient patient, bool lab)
         {
             //Lijn 1: aanduiding begin van een aanvraag formaat: #A (eventueel gevolgd het rijksregisternummer van de patient of bij gebrek hieraan het Medidoc dossiernummer van de patiënt   zie appendix A voor de vorming van het Medidoc dossiernummer)
             lineNumber++;
@@ -172,7 +172,7 @@ namespace MediDocParser
             writer.WriteLine("#A/");
         }
 
-        void ComposeResultBlock(TextWriter writer, ref int lineNumber, Result result)
+        static void ComposeResultBlock(TextWriter writer, ref int lineNumber, Result result)
         {
             if (result is ResultTitle)
                 ComposeResultTitleBlock(writer, ref lineNumber, result as ResultTitle);
@@ -182,7 +182,7 @@ namespace MediDocParser
                 ComposeTextResultBlock(writer, ref lineNumber, result as TextResult);
         }
 
-        void ComposeResultTitleBlock(TextWriter writer, ref int lineNumber, ResultTitle result)
+        static void ComposeResultTitleBlock(TextWriter writer, ref int lineNumber, ResultTitle result)
         {
             //(lijn 1:)#Rc positie 1-3:duidt begin aan van verslag)
             lineNumber++;
@@ -218,7 +218,7 @@ namespace MediDocParser
             writer.WriteLine("#R/");
         }
 
-        void ComposeNumericBlock(TextWriter writer, ref int lineNumber, NumericResult result)
+        static void ComposeNumericBlock(TextWriter writer, ref int lineNumber, NumericResult result)
         {
             //Lijn 1: aanduiding begin van een resultaat
             //formaat: #Ra 
@@ -319,7 +319,7 @@ namespace MediDocParser
             writer.WriteLine("#R/");
         }
 
-        void ComposeTextResultBlock(TextWriter writer, ref int lineNumber, TextResult result)
+        static void ComposeTextResultBlock(TextWriter writer, ref int lineNumber, TextResult result)
         {
             //(lijn 1:)#Rb positie 1-3:duidt begin aan van verslag)
             lineNumber++;
@@ -345,7 +345,7 @@ namespace MediDocParser
             writer.WriteLine("#R/");
         }
 
-        void ComposeTextReportDoctorBlock(TextWriter writer, ref int lineNumber, ExecutingDoctor executingDoctor)
+        static void ComposeTextReportDoctorBlock(TextWriter writer, ref int lineNumber, ExecutingDoctor executingDoctor)
         {
             //(lijn 1:)RIZIV-nummer uitvoerend arts of paramedicus (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
