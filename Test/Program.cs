@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using MediDocParser;
 
 namespace Test
@@ -201,16 +202,19 @@ H
             Console.WriteLine(json);
             */
 
-            var text = File.ReadAllText(@"E:\Temp\labo01.lab");
+            var t = Task.Run(async () =>
+            {
+                var text = File.ReadAllText(@"E:\Temp\labo01.lab");
 
-            var labs = Parser.ParseLabReport(text); //DMA-LAB
+                var labs = await Parser.ParseLabReport(text); //DMA-LAB
 
-            var sb = new StringBuilder();
-            using (var writer = new StringWriter(sb))
-                Composer.ComposeLabReport(writer, labs);
+                var sb = new StringBuilder();
+                using (var writer = new StringWriter(sb))
+                    await Composer.ComposeLabReport(writer, labs);
 
-            Console.WriteLine(sb.ToString());
-
+                Console.Write(sb.ToString());
+            });
+            t.Wait();
 
             Console.ReadLine();
         }

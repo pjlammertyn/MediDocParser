@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using MediDocParser.Model;
 
 namespace MediDocParser
@@ -9,81 +11,87 @@ namespace MediDocParser
     {
         #region Compose Methods
 
-        public static void ComposeTextReport(TextWriter writer, IEnumerable<ExecutingDoctor> executingDoctors)
+        public static async Task ComposeTextReport(TextWriter writer, IEnumerable<ExecutingDoctor> executingDoctors)
         {
             var lineNumber = 0;
             foreach (var executingDoctor in executingDoctors)
-                ComposeTextReportDoctorBlock(writer, ref lineNumber, executingDoctor);
+                await ComposeTextReportDoctorBlock(writer, () => lineNumber, (ln) => lineNumber = ln, executingDoctor);
         }
 
-        public static void ComposeLabReport(TextWriter writer, IEnumerable<Lab> labs)
+        public static async Task ComposeLabReport(TextWriter writer, IEnumerable<Lab> labs)
         {
             var lineNumber = 0;
             foreach (var lab in labs)
-                ComposeLabBlock(writer, ref lineNumber, lab);
+                await ComposeLabBlock(writer, () => lineNumber, (ln) => lineNumber = ln, lab);
         }
 
         #endregion
 
         #region Private Compose Methods
 
-        static void ComposeLabBlock(TextWriter writer, ref int lineNumber, Lab lab)
+        static async Task ComposeLabBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, Lab lab)
         {
+            var lineNumber = lineNumberGetter();
+
             //Lijn 1: “Medidoc” identificatienummer van het laboratorium. 
             //formaat: 4 karakters en wordt als volgt gevormd: de eerste letter van de provincie (W,O,A,B,L) gevolgd door de eerste twee cijfers van de postkode, gevolgd door een volgnummer binnen de stad of gemeente. (vb. W841 voor een labo te Oostende)
             lineNumber++;
-            writer.WriteLine(lab.Id);
+            await writer.WriteLineAsync(lab.Id);
 
             //Lijn 2 6: Identificatiegegevens van het labo (naam, adres, tel ...)
             //formaat: vrije tekst met maximaal 50 karakters per lijn .
             lineNumber++;
-            writer.WriteLine(lab.Name?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(lab.Name?.TrimToMaxSize(50));
             lineNumber++;
-            writer.WriteLine(lab.Address1?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(lab.Address1?.TrimToMaxSize(50));
             lineNumber++;
-            writer.WriteLine(lab.Address2?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(lab.Address2?.TrimToMaxSize(50));
             lineNumber++;
-            writer.WriteLine(lab.IdentificationData1?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(lab.IdentificationData1?.TrimToMaxSize(50));
             lineNumber++;
-            writer.WriteLine(lab.IdentificationData2?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(lab.IdentificationData2?.TrimToMaxSize(50));
 
             //Lijn 7: datum (+ eventueel tijdstip) aanmaak
             //formaat: JJJJMMDD(+evtHHMM)
             lineNumber++;
-            writer.WriteLine(lab.Date?.IsMidnight() ?? false ?
+            await writer.WriteLineAsync(lab.Date?.IsMidnight() ?? false ?
                 lab.Date?.ToString("yyyyMMdd") :
                 lab.Date?.ToString("yyyyMMddHHmm"));
 
             //Lijn 8: RIZIV nummer aanvragende arts
             //formaat: C/CCCCC/CC/CCC
             lineNumber++;
-            writer.WriteLine(Regex.Replace(lab.RequestingDoctor?.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
+            await writer.WriteLineAsync(Regex.Replace(lab.RequestingDoctor?.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
 
             //lijn 9: Naam (positie 1-24) + Voornaam (positie 25-40) aanvragende arts
             lineNumber++;
-            writer.WriteLine(string.Concat(lab.RequestingDoctor?.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, lab.RequestingDoctor?.FirstName).TrimToMaxSize(40));
+            await writer.WriteLineAsync(string.Concat(lab.RequestingDoctor?.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, lab.RequestingDoctor?.FirstName).TrimToMaxSize(40));
 
             foreach (var patient in lab.Patients)
-                ComposePatientBlock(writer, ref lineNumber, patient, true);
+                await ComposePatientBlock(writer, () => lineNumber, (ln) => lineNumber = ln, patient, true);
 
             lineNumber++;
-            writer.WriteLine($"#/{lineNumber}");
+            await writer.WriteLineAsync($"#/{lineNumber}");
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposePatientBlock(TextWriter writer, ref int lineNumber, Patient patient, bool lab)
+        static async Task ComposePatientBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, Patient patient, bool lab)
         {
+            var lineNumber = lineNumberGetter();
+
             //Lijn 1: aanduiding begin van een aanvraag formaat: #A (eventueel gevolgd het rijksregisternummer van de patient of bij gebrek hieraan het Medidoc dossiernummer van de patiënt   zie appendix A voor de vorming van het Medidoc dossiernummer)
             lineNumber++;
-            writer.WriteLine(string.Concat("#A", patient.Id));
+            await writer.WriteLineAsync(string.Concat("#A", patient.Id));
 
             //Lijn 2:	naam en voornaam van de patiënt
             lineNumber++;
-            writer.WriteLine(string.Concat(patient.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, patient.FirstName).TrimToMaxSize(40));
+            await writer.WriteLineAsync(string.Concat(patient.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, patient.FirstName).TrimToMaxSize(40));
 
             //Lijn 3: geboortedatum patiënt
             //formaat: JJJJMMDD
             lineNumber++;
-            writer.WriteLine(patient.BirthDate?.ToString("yyyyMMdd"));
+            await writer.WriteLineAsync(patient.BirthDate?.ToString("yyyyMMdd"));
 
             //Lijn 4: geslacht patiënt
             //formaat: X, of Y, of Z
@@ -91,25 +99,25 @@ namespace MediDocParser
             switch (patient.Sex)
             {
                 case Sex.male:
-                    writer.WriteLine("Y");
+                    await writer.WriteLineAsync("Y");
                     break;
                 case Sex.female:
-                    writer.WriteLine("X");
+                    await writer.WriteLineAsync("X");
                     break;
                 default:
-                    writer.WriteLine("Z");
+                    await writer.WriteLineAsync("Z");
                     break;
             }
 
             //Lijn 5:	datum van de aanvraag
             //formaat: JJJJMMDD
             lineNumber++;
-            writer.WriteLine(patient.RequestDate?.ToString("yyyyMMdd"));
+            await writer.WriteLineAsync(patient.RequestDate?.ToString("yyyyMMdd"));
 
             //(Lijn 6:	referentienummer aanvraag 
             //formaat: max 14 karakters.
             lineNumber++;
-            writer.WriteLine(patient.ReferenceNumber?.TrimToMaxSize(14));
+            await writer.WriteLineAsync(patient.ReferenceNumber?.TrimToMaxSize(14));
 
             if (lab)
             {
@@ -119,19 +127,19 @@ namespace MediDocParser
                 switch (patient.ProtocolCode)
                 {
                     case ProtocolCode.Partial:
-                        writer.WriteLine("P");
+                        await writer.WriteLineAsync("P");
                         break;
                     case ProtocolCode.Full:
-                        writer.WriteLine("C");
+                        await writer.WriteLineAsync("C");
                         break;
                     case ProtocolCode.Adition:
-                        writer.WriteLine("S");
+                        await writer.WriteLineAsync("S");
                         break;
                     case ProtocolCode.LastAdition:
-                        writer.WriteLine("L");
+                        await writer.WriteLineAsync("L");
                         break;
                     default:
-                        writer.WriteLine();
+                        await writer.WriteLineAsync();
                         break;
                 }
             }
@@ -140,7 +148,7 @@ namespace MediDocParser
                 //(lijn 7:)Episodenummer (positie 1-14); legt verband tussen meerdere onderzoeken
                 //mag blanco gelaten worden
                 lineNumber++;
-                writer.WriteLine(patient.EpisodeNumber?.TrimToMaxSize(14));
+                await writer.WriteLineAsync(patient.EpisodeNumber?.TrimToMaxSize(14));
             }
 
             //(lijn 1-7 zijn obligaat, de volgende lijnen mogen weggelaten worden)
@@ -148,45 +156,53 @@ namespace MediDocParser
             if (!string.IsNullOrEmpty(patient.Address?.Street))
             {
                 lineNumber++;
-                writer.WriteLine(string.Concat(patient.Address?.Street?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, patient.Address?.HouseNr).TrimToMaxSize(31));
+                await writer.WriteLineAsync(string.Concat(patient.Address?.Street?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, patient.Address?.HouseNr).TrimToMaxSize(31));
             }
 
             //(lijn 9:)Postcode (positie 1-7)
             if (!string.IsNullOrEmpty(patient.Address?.PostalCode))
             {
                 lineNumber++;
-                writer.WriteLine(patient.Address?.PostalCode?.TrimToMaxSize(7));
+                await writer.WriteLineAsync(patient.Address?.PostalCode?.TrimToMaxSize(7));
             }
 
             //(lijn 10:)Gemeente (positie 1-24)
             if (!string.IsNullOrEmpty(patient.Address?.Town))
             {
                 lineNumber++;
-                writer.WriteLine(patient.Address?.Town?.TrimToMaxSize(24));
+                await writer.WriteLineAsync(patient.Address?.Town?.TrimToMaxSize(24));
             }
 
             foreach (var result in patient.Results)
-                ComposeResultBlock(writer, ref lineNumber, result);
+               await  ComposeResultBlock(writer, () => lineNumber, (ln) => lineNumber = ln, result);
 
             lineNumber++;
-            writer.WriteLine("#A/");
+            await writer.WriteLineAsync("#A/");
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposeResultBlock(TextWriter writer, ref int lineNumber, Result result)
+        static async Task ComposeResultBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, Result result)
         {
+            var lineNumber = lineNumberGetter();
+
             if (result is ResultTitle)
-                ComposeResultTitleBlock(writer, ref lineNumber, result as ResultTitle);
+                await ComposeResultTitleBlock(writer, () => lineNumber, (ln) => lineNumber = ln, result as ResultTitle);
             else if (result is NumericResult)
-                ComposeNumericBlock(writer, ref lineNumber, result as NumericResult);
+                await ComposeNumericBlock(writer, () => lineNumber, (ln) => lineNumber = ln, result as NumericResult);
             else if (result is TextResult)
-                ComposeTextResultBlock(writer, ref lineNumber, result as TextResult);
+                await ComposeTextResultBlock(writer, () => lineNumber, (ln) => lineNumber = ln, result as TextResult);
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposeResultTitleBlock(TextWriter writer, ref int lineNumber, ResultTitle result)
+        static async Task ComposeResultTitleBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, ResultTitle result)
         {
+            var lineNumber = lineNumberGetter();
+
             //(lijn 1:)#Rc positie 1-3:duidt begin aan van verslag)
             lineNumber++;
-            writer.WriteLine("#Rc");
+            await writer.WriteLineAsync("#Rc");
 
             //Lijn 2: identificatie van de analyse
             //Formaat:
@@ -195,9 +211,9 @@ namespace MediDocParser
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
             lineNumber++;
             if (!string.IsNullOrEmpty(result.Code))
-                writer.WriteLine(result.Code?.TrimToMaxSize(8));
+                await writer.WriteLineAsync(result.Code?.TrimToMaxSize(8));
             else
-                writer.WriteLine(string.Concat("!", result.Name?.TrimToMaxSize(56)));
+                await writer.WriteLineAsync(string.Concat("!", result.Name?.TrimToMaxSize(56)));
 
             //Lijn 3,4,... : commentaar (facultatief)
             //Een willekeurig aantal lijnen met op elke lijn:
@@ -210,16 +226,20 @@ namespace MediDocParser
                     while ((line = sr.ReadLine()) != null)
                     {
                         lineNumber++;
-                        writer.WriteLine(line.TrimToMaxSize(75));
+                        await writer.WriteLineAsync(line.TrimToMaxSize(75));
                     }
                 }
 
             lineNumber++;
-            writer.WriteLine("#R/");
+            await writer.WriteLineAsync("#R/");
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposeNumericBlock(TextWriter writer, ref int lineNumber, NumericResult result)
+        static async Task ComposeNumericBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, NumericResult result)
         {
+            var lineNumber = lineNumberGetter();
+
             //Lijn 1: aanduiding begin van een resultaat
             //formaat: #Ra 
             lineNumber++;
@@ -228,21 +248,21 @@ namespace MediDocParser
                 switch ((result as DynamicResult).TimeIndication)
                 {
                     case TimeIndication.Days:
-                        writer.WriteLine("#Rd");
+                        await writer.WriteLineAsync("#Rd");
                         break;
                     case TimeIndication.Hours:
-                        writer.WriteLine("#Rh");
+                        await writer.WriteLineAsync("#Rh");
                         break;
                     case TimeIndication.Minutes:
-                        writer.WriteLine("#Rm");
+                        await writer.WriteLineAsync("#Rm");
                         break;
                     case TimeIndication.Seconds:
-                        writer.WriteLine("#Rs");
+                        await writer.WriteLineAsync("#Rs");
                         break;
                 }
             }
             else
-                writer.WriteLine("#Ra");
+                await writer.WriteLineAsync("#Ra");
 
             //Lijn 2: identificatie van de analyse
             //Formaat:
@@ -251,9 +271,9 @@ namespace MediDocParser
             //ofwel: een  !  gevolgd door de naam v.d. analyse (max. 56 karakters)
             lineNumber++;
             if (!string.IsNullOrEmpty(result.Code))
-                writer.WriteLine(result.Code?.TrimToMaxSize(8));
+                await writer.WriteLineAsync(result.Code?.TrimToMaxSize(8));
             else
-                writer.WriteLine(string.Concat("!", result.Name?.TrimToMaxSize(56)));
+                await writer.WriteLineAsync(string.Concat("!", result.Name?.TrimToMaxSize(56)));
 
             //Lijn 3:	de uitslag zelf
             //formaat: 1 karakter, met name:
@@ -267,31 +287,31 @@ namespace MediDocParser
             //ofwel:	=%% gevolgd door max. 75 karakters vrije tekst (beperking niet meer van toepassing voor de pakketten van Corilus nv) of de code van een standaard
             //commentaar (cfr. Appendix B) => betekent: er is geen uitslag, de tekst legt uit waarom.
             lineNumber++;
-            writer.WriteLine(result.Value);
+            await writer.WriteLineAsync(result.Value);
 
             //Lijn 4:	de "Medidoc" eenheididentifikatie
             //formaat: 2 karakters
             lineNumber++;
-            writer.WriteLine(result.Unit?.TrimToMaxSize(2));
+            await writer.WriteLineAsync(result.Unit?.TrimToMaxSize(2));
 
             //Lijn 5:	aanduiding pathologisch/normaal (max. 6 karakters)
             lineNumber++;
             switch (result.Intensity)
             {
                 case ResultIntensity.GreatlyReduced:
-                    writer.WriteLine("--");
+                    await writer.WriteLineAsync("--");
                     break;
                 case ResultIntensity.Reduced:
-                    writer.WriteLine("-");
+                    await writer.WriteLineAsync("-");
                     break;
                 case ResultIntensity.Normal:
-                    writer.WriteLine("=");
+                    await writer.WriteLineAsync("=");
                     break;
                 case ResultIntensity.Increased:
-                    writer.WriteLine("+");
+                    await writer.WriteLineAsync("+");
                     break;
                 case ResultIntensity.GreatlyIncreased:
-                    writer.WriteLine("++");
+                    await writer.WriteLineAsync("++");
                     break;
                 default:
                     break;
@@ -301,7 +321,7 @@ namespace MediDocParser
             if (result.ReferenceValue != null)
             {
                 lineNumber++;
-                writer.WriteLine(string.Concat(@"\", result.ReferenceValue));
+                await writer.WriteLineAsync(string.Concat(@"\", result.ReferenceValue));
             }
 
             if (result.Comment != null)
@@ -311,24 +331,28 @@ namespace MediDocParser
                     while ((line = sr.ReadLine()) != null)
                     {
                         lineNumber++;
-                        writer.WriteLine(line/*.TrimToMaxSize(75)*/);
+                        await writer.WriteLineAsync(line/*.TrimToMaxSize(75)*/);
                     }
                 }
 
             lineNumber++;
-            writer.WriteLine("#R/");
+            await writer.WriteLineAsync("#R/");
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposeTextResultBlock(TextWriter writer, ref int lineNumber, TextResult result)
+        static async Task ComposeTextResultBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, TextResult result)
         {
+            var lineNumber = lineNumberGetter();
+
             //(lijn 1:)#Rb positie 1-3:duidt begin aan van verslag)
             lineNumber++;
-            writer.WriteLine("#Rb");
+            await writer.WriteLineAsync("#Rb");
 
             //(lijn 2:) evt identificatie van de analyse (positie 1-56)
             //formaat: '!'gevolgd door trefwoord
             lineNumber++;
-            writer.WriteLine(string.Concat("!", result.Name?.TrimToMaxSize(56)));
+            await writer.WriteLineAsync(string.Concat("!", result.Name?.TrimToMaxSize(56)));
 
             //(lijn 3: vanaf hier begint het eigenlijke verslag)
             using (var sr = new StringReader(result.Text))
@@ -337,67 +361,73 @@ namespace MediDocParser
                 while ((line = sr.ReadLine()) != null)
                 {
                     lineNumber++;
-                    writer.WriteLine(line/*.TrimToMaxSize(75)*/);
+                    await writer.WriteLineAsync(line/*.TrimToMaxSize(75)*/);
                 }
             }
 
             lineNumber++;
-            writer.WriteLine("#R/");
+            await writer.WriteLineAsync("#R/");
+
+            lineNumberSetter(lineNumber);
         }
 
-        static void ComposeTextReportDoctorBlock(TextWriter writer, ref int lineNumber, ExecutingDoctor executingDoctor)
+        static async Task ComposeTextReportDoctorBlock(TextWriter writer, Func<int> lineNumberGetter, Action<int> lineNumberSetter, ExecutingDoctor executingDoctor)
         {
+            var lineNumber = lineNumberGetter();
+
             //(lijn 1:)RIZIV-nummer uitvoerend arts of paramedicus (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
             lineNumber++;
-            writer.WriteLine(Regex.Replace(executingDoctor.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
+            await writer.WriteLineAsync(Regex.Replace(executingDoctor.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
 
             //(lijn 2:)Naam (positie 1-24) + Voornaam (positie 25-40)
             //uitvoerend arts of paramedicus
             lineNumber++;
-            writer.WriteLine(string.Concat(executingDoctor.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, executingDoctor.FirstName).TrimToMaxSize(40));
+            await writer.WriteLineAsync(string.Concat(executingDoctor.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, executingDoctor.FirstName).TrimToMaxSize(40));
 
             //(lijn 3:)Straat (positie 1-35) + nr (positie 36-45)
             //uitvoerend arts of paramedicus
             lineNumber++;
-            writer.WriteLine(string.Concat(executingDoctor.Address?.Street?.TrimToMaxSize(35).PadRight(35) ?? string.Empty, executingDoctor.Address?.HouseNr).TrimToMaxSize(45));
+            await writer.WriteLineAsync(string.Concat(executingDoctor.Address?.Street?.TrimToMaxSize(35).PadRight(35) ?? string.Empty, executingDoctor.Address?.HouseNr).TrimToMaxSize(45));
 
             //(lijn 4:)Postcode (positie 1-10) + Gemeente (positie 11-45)
             //uitvoerend arts of paramedicus
             lineNumber++;
-            writer.WriteLine(string.Concat(executingDoctor.Address?.PostalCode?.TrimToMaxSize(10).PadRight(10) ?? string.Empty, executingDoctor.Address?.HouseNr).TrimToMaxSize(45));
+            await writer.WriteLineAsync(string.Concat(executingDoctor.Address?.PostalCode?.TrimToMaxSize(10).PadRight(10) ?? string.Empty, executingDoctor.Address?.HouseNr).TrimToMaxSize(45));
 
             //(lijn 5:)Telefoon- en faxnummer (vrije tekst) (positie 1-50)
             //uitvoerend arts of paramedicus
             lineNumber++;
-            writer.WriteLine(executingDoctor.Phone?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(executingDoctor.Phone?.TrimToMaxSize(50));
 
             //(lijn 6:)Boodschap (vrije tekst) (positie 1-50)
             lineNumber++;
-            writer.WriteLine(executingDoctor.Message?.TrimToMaxSize(50));
+            await writer.WriteLineAsync(executingDoctor.Message?.TrimToMaxSize(50));
 
             //(lijn 7:)Datum(+eventueel tijdstip) aanmaak diskette (positie 1-10)
             //formaat: JJJJMMDD(+evtHHMM)
             lineNumber++;
-            writer.WriteLine(executingDoctor.Date?.IsMidnight() ?? false ?
+            await writer.WriteLineAsync(executingDoctor.Date?.IsMidnight() ?? false ?
                 executingDoctor.Date?.ToString("yyyyMMdd") :
                 executingDoctor.Date?.ToString("yyyyMMddHHmm"));
 
             //(lijn 8:)RIZIV-nummer aanvragende arts (positie 1-14)
             //formaat: C/CCCCC/CC/CCC
             lineNumber++;
-            writer.WriteLine(Regex.Replace(executingDoctor.RequestingDoctor?.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
+            await writer.WriteLineAsync(Regex.Replace(executingDoctor.RequestingDoctor?.RizivNr ?? string.Empty, @"(\w{1})(\w{5})(\w{2})(\w{3})", @"$1/$2/$3/$4"));
 
             //(lijn 9:)Naam (positie 1-24) + Voornaam (positie 25-40)
             //aanvragende arts
             lineNumber++;
-            writer.WriteLine(string.Concat(executingDoctor.RequestingDoctor?.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, executingDoctor.RequestingDoctor?.FirstName).TrimToMaxSize(40));
+            await writer.WriteLineAsync(string.Concat(executingDoctor.RequestingDoctor?.LastName?.TrimToMaxSize(24).PadRight(24) ?? string.Empty, executingDoctor.RequestingDoctor?.FirstName).TrimToMaxSize(40));
 
             foreach (var patient in executingDoctor.Patients)
-                ComposePatientBlock(writer, ref lineNumber, patient, true);
+                await ComposePatientBlock(writer, () => lineNumber, (ln) => lineNumber = ln, patient, true);
 
             lineNumber++;
-            writer.WriteLine($"#/{lineNumber}");
+            await writer.WriteLineAsync($"#/{lineNumber}");
+
+            lineNumberSetter(lineNumber);
         }
 
         #endregion
